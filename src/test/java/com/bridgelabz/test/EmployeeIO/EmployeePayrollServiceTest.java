@@ -56,7 +56,7 @@ public class EmployeePayrollServiceTest {
 	@Test
 	public void givenNewSalary_whenUpdated_shouldReturnSynchWithDB() throws EmployeePayrollException {
 		List<EmployeePayroll> list = employeePayrollService.readData(IOService.DB_IO);
-		employeePayrollService.updateSalary("Clare", 5000);
+		employeePayrollService.updateSalary("Clare", 5000, IOService.DB_IO);
 		boolean result = employeePayrollService.checkEmployeePayrollInSync("Clare");
 		Assert.assertTrue(result);
 	}
@@ -132,9 +132,9 @@ public class EmployeePayrollServiceTest {
 		RestAssured.port = 3000;
 	}
 
-	private EmployeePayroll[] getEmployeeList() {
+	private EmployeePayroll[] getEmployeeListFromJsonServer() {
 		Response response = RestAssured.get("/employees");
-		System.out.println("Employee Payroll Entries in JSON Server: \n" + response.asString());
+		//System.out.println("Employee Payroll Entries in JSON Server: \n" + response.asString());
 		EmployeePayroll[] arrayOfEmps = new Gson().fromJson(response.asString(), EmployeePayroll[].class);
 		return arrayOfEmps;
 	}
@@ -149,7 +149,7 @@ public class EmployeePayrollServiceTest {
 
 	@Test
 	public void givenEmployeeDataInJsonServer_whenRetrieved_shouldMatchTheCount() {
-		EmployeePayroll[] arrayOfEmps = getEmployeeList();
+		EmployeePayroll[] arrayOfEmps = getEmployeeListFromJsonServer();
 		employeePayrollService = new EmployeePayrollService(Arrays.asList(arrayOfEmps));
 		long entries = employeePayrollService.countEntries(IOService.REST_IO);
 		Assert.assertEquals(5, entries);
@@ -157,7 +157,7 @@ public class EmployeePayrollServiceTest {
 
 	@Test
 	public void givenNewEmployee_whenAdded_shouldMatch201ResponsefromJSONServer() {
-		EmployeePayroll[] arrayOfEmps = getEmployeeList();
+		EmployeePayroll[] arrayOfEmps = getEmployeeListFromJsonServer();
 		employeePayrollService = new EmployeePayrollService(Arrays.asList(arrayOfEmps));
 		EmployeePayroll employeePayroll = null;
 		employeePayroll = new EmployeePayroll(0, "Mark Zukesberg", 30000.0, LocalDate.now(), "M");
@@ -175,7 +175,7 @@ public class EmployeePayrollServiceTest {
 
 	@Test
 	public void givenListOfNewEmployees_whenAdded_shouldMatch201Response() {
-		EmployeePayroll[] arraysOfEmps = getEmployeeList();
+		EmployeePayroll[] arraysOfEmps = getEmployeeListFromJsonServer();
 		employeePayrollService = new EmployeePayrollService(Arrays.asList(arraysOfEmps));
 		EmployeePayroll[] arraysOfEmp = { 
 				new EmployeePayroll(0, "Zeffy", 5000, LocalDate.now(), "M"),
@@ -191,5 +191,23 @@ public class EmployeePayrollServiceTest {
 		}
 		long entries = employeePayrollService.countEntries(IOService.REST_IO);
 		Assert.assertEquals(9, entries);
+	}
+	
+	@Test
+	public void givenNewSalary_whenUpdated_shouldMatch200ResponseCode() throws EmployeePayrollException {
+		EmployeePayroll[] arraysOfEmps = getEmployeeListFromJsonServer();
+		employeePayrollService = new EmployeePayrollService(Arrays.asList(arraysOfEmps));
+		employeePayrollService.updateSalary("Zeffy", 7000, IOService.REST_IO);	// updating salary in the memory i.e. list first
+		EmployeePayroll employeePayroll = employeePayrollService.getEmployeePayrollData("Zeffy");
+		String empJson = new Gson().toJson(employeePayroll);
+		RequestSpecification request = RestAssured.given();
+		request.header("Content-Type", "application/json");
+		request.body(empJson);
+		System.out.println(employeePayroll.getId() + "  id");
+		System.out.println(employeePayroll.getSalary() + "  salary");
+		Response response = request.put("/employees/" + employeePayroll.getId());	// for the particular id, we are just adding the employee in the json server
+		System.out.println("Response back : " + response.asString());
+		int statusCode = response.getStatusCode();
+		Assert.assertEquals(200,  statusCode);
 	}
 }
